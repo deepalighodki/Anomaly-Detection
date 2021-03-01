@@ -1,2 +1,343 @@
-https://www.kaggle.com/deepalighodki/credit-card-fraud-detection
----------
+#!/usr/bin/env python
+# coding: utf-8
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+df = pd.read_csv("C:/Users/Dipu/Desktop/Data Science/Analytic_Vidya/creditcard.csv")
+df.head()
+df.describe()
+df.isnull().sum()
+
+# Since most of our data has already been scaled we should scale the columns that are left to scale (Amount and Time)
+from sklearn.preprocessing import StandardScaler, RobustScaler
+
+# RobustScaler is less prone to outliers.
+std_scaler = StandardScaler()
+rob_scaler = RobustScaler()
+
+df['amount_scale'] = rob_scaler.fit_transform(df['Amount'].values.reshape(-1,1))
+df['time_scale'] = rob_scaler.fit_transform(df['Time'].values.reshape(-1,1))
+df.drop(['Time','Amount'], axis=1, inplace=True)
+df
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+plt.hist(df.Class)#class with fraud data is very less.so we can say that data is highly imbalance
+
+print('No Frauds', round(df['Class'].value_counts()[0]/len(df) * 100,2), '% of the dataset')
+
+print('Frauds', round(df['Class'].value_counts()[1]/len(df) * 100,2), '% of the dataset')
+Class_0=df.loc[df.Class==0]
+Class_1=df.loc[df.Class==1]
+Class_0,Class_1
+
+a1=df['Class'].value_counts()[0]
+a1
+a2=df['Class'].value_counts()[1]
+a2
+
+Class_0_under=Class_0.sample(a2)
+Class_0_under
+Class_1
+
+#Now our data in balanced(undersampled), club this data with original dataframe
+df_under_Sample=pd.concat([Class_0_under,Class_1])
+df_under_Sample
+
+# Pearson correlation coefficient
+corr_matrix=df_under_Sample.corr()['Class'].sort_values(ascending= False)
+corr_matrix.head(10)
+
+# absolute for positive values
+abs_corr = abs(corr_matrix)
+abs_corr.sort_values(ascending=False).head(10)
+# keep only those features having strong relation with Class 
+relevant_features = abs_corr[abs_corr>0.5]
+relevant_features.sort_values(ascending=False)
+
+#we will continue with undersampled data 
+features=df_under_Sample[relevant_features.index]
+features
+
+print('Distribution of the Classes in the subsample dataset')
+print(features['Class'].value_counts()/len(features))
+sns.countplot('Class', data=features)
+plt.title('Equally Distributed Classes', fontsize=14)
+plt.show()
+
+#Class	V4	V11	V17	V9	V3	V16	V10	V12	V14
+f,axes = plt.subplots(ncols=9, figsize=(20,5))
+sns.boxplot(x="Class", y="V4", data=features, ax=axes[0])
+axes[0].set_title('V4 vs Class')
+sns.boxplot(x="Class", y="V11", data=features, ax=axes[1])
+axes[1].set_title('V11 vs Class')
+sns.boxplot(x="Class", y="V17", data=features, ax=axes[2])
+axes[2].set_title('V17 vs Class')
+sns.boxplot(x="Class", y="V9", data=features, ax=axes[3])
+axes[3].set_title('V9 vs Class')
+sns.boxplot(x="Class", y="V3", data=features, ax=axes[4])
+axes[4].set_title('V3 vs Class')
+sns.boxplot(x="Class", y="V16", data=features, ax=axes[5])
+axes[5].set_title('V16 vs Class')
+sns.boxplot(x="Class", y="V10", data=features, ax=axes[6])
+axes[6].set_title('V10 vs Class')
+sns.boxplot(x="Class", y="V12", data=features, ax=axes[7])
+axes[7].set_title('V12 vs Class')
+
+sns.boxplot(x="Class", y="V14", data=features, ax=axes[8])
+axes[8].set_title('V14 vs Class')
+plt.show()
+
+Q1 = features.quantile(0.25)
+Q3 = features.quantile(0.75)
+IQR = Q3 - Q1
+IQR
+
+#sorted(features)
+features_out = features[~((features <= (Q1 - 1.5 * IQR)) |(features >= (Q3 + 1.5 * IQR)))]
+features_out
+
+f,axes = plt.subplots(ncols=9, figsize=(20,5))
+sns.boxplot(x="Class", y="V4", data=features_out, ax=axes[0])
+axes[0].set_title('V4 vs Class')
+sns.boxplot(x="Class", y="V11", data=features_out, ax=axes[1])
+axes[1].set_title('V11 vs Class')
+sns.boxplot(x="Class", y="V17", data=features_out, ax=axes[2])
+axes[2].set_title('V17 vs Class')
+sns.boxplot(x="Class", y="V9", data=features_out, ax=axes[3])
+axes[3].set_title('V9 vs Class')
+sns.boxplot(x="Class", y="V3", data=features_out, ax=axes[4])
+axes[4].set_title('V3 vs Class')
+sns.boxplot(x="Class", y="V16", data=features_out, ax=axes[5])
+axes[5].set_title('V16 vs Class')
+sns.boxplot(x="Class", y="V10", data=features_out, ax=axes[6])
+axes[6].set_title('V10 vs Class')
+sns.boxplot(x="Class", y="V12", data=features_out, ax=axes[7])
+axes[7].set_title('V12 vs Class')
+sns.boxplot(x="Class", y="V14", data=features_out, ax=axes[8])
+axes[8].set_title('V14 vs Class')
+plt.show()
+corr_cef=features_out.corr()['Class'].sort_values(ascending= False)
+corr_cef
+
+#Now my data is balanced &  ready for modeling
+#spliting data in to train & test
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedShuffleSplit,StratifiedKFold
+
+# See if both the train and test label distribution are similarly distributed
+
+#import tensorflow as tf
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA, TruncatedSVD
+import matplotlib.patches as mpatches
+import time
+
+# Classifier Libraries
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+import collections
+# Other Libraries
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
+from imblearn.pipeline import make_pipeline as imbalanced_make_pipeline
+from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import NearMiss
+from imblearn.metrics import classification_report_imbalanced
+from sklearn.metrics import classification_report
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, accuracy_score, classification_report
+from collections import Counter
+from sklearn.model_selection import KFold, StratifiedKFold
+
+X_us =df_under_Sample.drop('Class', axis=1)
+y_us= df_under_Sample['Class']
+y_us,X_us
+
+# Our data is already scaled we should split our training and test sets
+from sklearn.model_selection import train_test_split
+
+# This is explicitly used for undersampling.
+X_train_us, X_test_us, y_train_us, y_test_us = train_test_split(X_us, y_us, test_size=0.2, random_state=42)
+
+from sklearn.metrics import classification_report
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, accuracy_score, classification_report
+X_train_us,y_train_us
+
+from sklearn.model_selection import GridSearchCV
+import sklearn.pipeline
+from sklearn.pipeline import make_pipeline
+
+pipe = make_pipeline(StandardScaler(), LogisticRegression())
+pipe=pipe.fit(X_train_us,y_train_us)  # apply scaling on training data
+
+y_test_pred=pipe.predict(X_test_us)
+
+print(classification_report(y_test_us,y_test_pred))
+print(np.mean(y_test_us==y_test_pred))
+pipe.score(X_test_us, y_test_us)
+
+from sklearn.metrics import cohen_kappa_score
+cohen_kappa_score(y_test_us,y_test_pred)# with feature sampling
+#let's continue with whole data with oversampling
+X=df.drop('Class',axis=1)
+y=df.Class
+
+from sklearn.model_selection import train_test_split, RandomizedSearchCV
+X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=.2,random_state=0)
+
+# List to append the score and then find the average
+accuracy_lst = []
+precision_lst = []
+recall_lst = []
+f1_lst = []
+auc_lst = []
+
+# Classifier with optimal parameters
+# log_reg_sm = grid_log_reg.best_estimator_
+log_reg_sm = LogisticRegression()
+# Parameters
+log_reg_params = {"penalty": ['l1', 'l2'], 'C': [0.001, 0.01]}
+rand_log_reg = RandomizedSearchCV(LogisticRegression(), log_reg_params, n_iter=4)
+
+model = rand_log_reg.fit(X_train, y_train)
+
+y_test_pred_orignal=model.predict(X_test)
+
+print(classification_report(y_test,y_test_pred_orignal))
+print(np.mean(y_test==y_test_pred_orignal))
+model.score(X_test, y_test)
+
+from sklearn.metrics import cohen_kappa_score
+cohen_kappa_score(y_test,y_test_pred_orignal)# without feature sampling
+
+X_train, X_test, Y_train, Y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+# transform the dataset
+oversample = SMOTE()
+X_train_os, y_train_os = oversample.fit_resample(X_train, y_train)
+X_train_os.value_counts().sum(), y_train_os.value_counts()
+
+log_reg= LogisticRegression()
+model=log_reg.fit(X_train_os,y_train_os)  # apply scaling on training data
+
+y_test_pred=model.predict(X_test)
+
+print(classification_report(y_test,y_test_pred))
+print(np.mean(y_test==y_test_pred))
+model.score(X_test, y_test)
+
+from sklearn.metrics import cohen_kappa_score
+#The kappa statistic is used to control only those instances that may have been correctly classified by chance.
+cohen_kappa_score(y_test,y_test_pred)# for SMOTE data
+
+pipe = make_pipeline(StandardScaler(), LogisticRegression())
+pipe=pipe.fit(X_train,y_train)  # apply scaling on training data
+y_test_pred=pipe.predict(X_test)
+
+print(classification_report(y_test,y_test_pred))
+print(np.mean(y_test==y_test_pred))
+pipe.score(X_test, y_test)
+
+cohen_kappa_score(y_test,y_test_pred)#for scaled logistic regression
+
+from sklearn.tree import DecisionTreeClassifier, export_graphviz
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import  cross_val_score
+
+tree_para = {'criterion':['gini','entropy'],'max_depth':[10]}
+clf = GridSearchCV(DecisionTreeClassifier(), tree_para, cv=5)
+DT_model=clf.fit(X_train, y_train)
+
+Y_test_pred_dt = DT_model.predict(X_test)
+from sklearn import metrics
+KNN_test=np.mean(y_test==Y_test_pred_dt)
+KNN_test
+
+confusion_matrix = pd.crosstab(y_test,Y_test_pred_dt)
+print (confusion_matrix)
+print(classification_report(y_test,Y_test_pred_dt))
+
+print(np.mean(y_test==Y_test_pred_dt))
+from sklearn.metrics import cohen_kappa_score
+cohen_kappa_score(y_test,Y_test_pred_dt)
+
+# fit model no training data
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, accuracy_score, classification_report
+
+from xgboost import XGBClassifier
+model = XGBClassifier()
+model.fit(X_train, y_train)
+# make predictions for test data
+y_pred_xg = model.predict(X_test)
+predictions = [round(value) for value in y_pred_xg]
+# evaluate predictions
+accuracy = accuracy_score(y_test, predictions)
+print("Accuracy: %.2f%%" % (accuracy * 100.0))
+
+# evaluate predictions
+accuracy = accuracy_score(y_test, y_pred_xg)
+print("Accuracy: %.2f%%" % (accuracy * 100.0))
+
+from	sklearn.cluster	import	KMeans
+from scipy.spatial.distance import cdist
+k = list(range(2,15))
+k
+TWSS = [] # variable for storing total within sum of squares for each kmeans 
+for i in k:
+    kmeans = KMeans(n_clusters = i)
+    kmeans.fit(features)
+    WSS = [] # variable for storing within sum of squares for each cluster 
+    for j in range(i):
+        WSS.append(sum(cdist(features.iloc[kmeans.labels_==j,:],kmeans.cluster_centers_[j].reshape(1,features.shape[1]),"euclidean")))
+    TWSS.append(sum(WSS))
+# Scree plot 
+plt.plot(k,TWSS, 'ro-');plt.xlabel("No_of_Clusters");plt.ylabel("total_within_SS");plt.xticks(k)
+
+from sklearn.tree import DecisionTreeClassifier
+# create a classifier object 
+seed=4
+decision_tree_cl = DecisionTreeClassifier(random_state = seed)  
+# fit the regressor with X and Y data 
+decision_tree_cl.fit(X_train,y_train) 
+Y_train_pred_DT=decision_tree_cl.predict(X_train)
+DT_train_accuracy_score=np.mean(y_train==Y_train_pred_DT)
+DT_train_accuracy_score
+Y_test_pred_DT=decision_tree_cl.predict(X_test)
+DT_test_accuracy=np.mean(y_test==Y_test_pred_DT)#
+DT_test_accuracy
+
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+pd.crosstab(y_test,Y_test_pred_DT),DT_test_accuracy
+
+from sklearn.metrics import cohen_kappa_score
+cohen_kappa_score(y_test,Y_test_pred_DT)
+
+import sklearn.metrics as metrics
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+print("Accuracy:",metrics.accuracy_score(y_test, Y_test_pred_DT))
+
+import keras
+from keras import backend as K
+from keras.models import Sequential
+from keras.layers import Activation
+from keras.layers.core import Dense
+from keras.optimizers import Adam
+from keras.metrics import categorical_crossentropy
+
+n_inputs = X_train.shape[1]
+
+undersample_model = Sequential([
+    Dense(n_inputs, input_shape=(n_inputs, ), activation='relu'),
+    Dense(32, activation='relu'),
+    Dense(2, activation='softmax')
+])
+
+undersample_model.summary()
+undersample_model.compile(Adam(lr=0.001), loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+undersample_model.fit(X_train, y_train, validation_split=0.2, batch_size=25, epochs=20, shuffle=True, verbose=2)
+
+
